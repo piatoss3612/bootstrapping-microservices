@@ -1,19 +1,32 @@
 # Chapter03
 
-## Install Dependencies
+## Build docker image
 
 ```sh
-$ npm i
+$ docker build -t node-app .
 ```
 
-## Run the application
+## Run docker container
 
 ```sh
-$ npm start
+$ docker run -d -p 3000:3000 node-app
 ```
 
-or
+## container list
 
 ```sh
-$ npm run start:dev # live reload
+$ docker ps
+CONTAINER ID   IMAGE      COMMAND                  CREATED         STATUS         PORTS                    NAMES
+b8acf48d4d75   node-app   "docker-entrypoint.s…"   9 minutes ago   Up 9 minutes   0.0.0.0:3000->3000/tcp   infallible_sammet
+```
+
+## container logs
+
+```sh
+$ docker logs b8ac
+
+> example-1@1.0.0 start
+> node index.js
+
+Example app listening at http://localhost:3000
 ```
