@@ -30,3 +30,9 @@ $ docker logs b8ac
 
 Example app listening at http://localhost:3000
 ```
+
+---
+
+## Azure Container Registry
+
+### [slide](https://docs.google.com/presentation/d/1Si9r9WFxZOfu71FrFkwC7zTkUJrCy3kLsPJz0xglIEI/edit?usp=sharing)
