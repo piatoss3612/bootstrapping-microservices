@@ -1,33 +1,30 @@
 const express = require("express");
-const fs = require("fs");
+const http = require("http");
 
 const app = express();
 
-if (!process.env.PORT) {
-  throw new Error(
-    "Please specify the port number for the HTTP server with the environment variable PORT."
-  );
-}
-
-const port = process.env.PORT;
+const PORT = process.env.PORT;
+const VIDEO_STORAGE_HOST = process.env.VIDEO_STORAGE_HOST;
+const VIDEO_STORAGE_PORT = process.env.VIDEO_STORAGE_PORT;
 
 app.get("/video", (req, res) => {
-  const path = "./videos/SampleVideo_1280x720_1mb.mp4";
-
-  fs.stat(path, (err, stats) => {
-    if (err) {
-      console.log(err);
-      return res.status(500).send(err.message);
+  const forwardRequest = http.request(
+    {
+      host: VIDEO_STORAGE_HOST,
+      port: VIDEO_STORAGE_PORT,
+      path: "/video?path=SampleVideo_1280x720_1mb.mp4",
+      method: "GET",
+      headers: req.headers,
+    },
+    (forwardResponse) => {
+      res.writeHeader(forwardResponse.statusCode, forwardResponse.headers);
+      forwardResponse.pipe(res);
     }
+  );
 
-    res.writeHead(200, {
-      "Content-Length": stats.size,
-      "Content-Type": "video/mp4",
-    });
-    fs.createReadStream(path).pipe(res);
-  });
+  req.pipe(forwardRequest);
 });
 
-app.listen(port, () => {
-  console.log(`Video streaming app listening at http://localhost:${port}`);
+app.listen(PORT, () => {
+  console.log(`Video streaming running on port ${PORT}`);
 });
