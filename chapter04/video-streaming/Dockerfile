@@ -10,6 +10,4 @@ COPY index.js ./
 
 COPY ./videos ./videos
 
-ENV PORT=3000
-
 CMD npm start
