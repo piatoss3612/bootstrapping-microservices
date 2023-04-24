@@ -1,8 +1,10 @@
 const express = require("express");
 const mongodb = require("mongodb");
+const amqp = require("amqplib");
 
 const DB_HOST = process.env.DB_HOST;
 const DB_NAME = process.env.DB_NAME;
+const RABBIT = process.env.RABBIT;
 
 if (!DB_HOST) {
   throw new Error(
@@ -16,57 +18,51 @@ if (!DB_NAME) {
   );
 }
 
+if (!RABBIT) {
+  throw new Error(
+    "Please specify the URL of the RabbitMQ server with the environment variable RABBIT."
+  );
+}
+
 const connectDB = async () => {
   const client = await mongodb.MongoClient.connect(DB_HOST);
   return client.db(DB_NAME);
 };
 
-const setupHandlers = (app, db) => {
-  const videosCollection = db.collection("videos");
-
-  app.post("/viewed", async (req, res) => {
-    const videoPath = req.body.videoPath;
-
-    try {
-      const result = await videosCollection.insertOne({ videoPath: videoPath });
-
-      if (result && result.acknowledged) {
-        res.status(201).send();
-      } else {
-        throw new Error("Failed to insert document");
-      }
-    } catch (err) {
-      console.error(`Error adding video ${videoPath} to history.`);
-      console.error((err && err.stack) || err);
-      res.status(500).send();
-    }
-  });
-
-  app.get("/history", async (req, res) => {
-    const skip = parseInt(req.query.skip);
-    const limit = parseInt(req.query.limit);
-
-    try {
-      const documents = await videosCollection
-        .find()
-        .skip(skip)
-        .limit(limit)
-        .toArray();
-
-      res.status(200).json({ history: documents });
-    } catch (err) {
-      console.error(`Error retrieving history from database.`);
-      console.error((err && err.stack) || err);
-      res.sendStatus(500);
-    }
-  });
+const connectRabbit = async () => {
+  const conn = await amqp.connect(RABBIT);
+  return conn.createChannel();
 };
 
-const startHttpServer = (db) => {
+const setupHandlers = async (app, db, msgChannel) => {
+  const videosCollection = db.collection("videos");
+
+  const consumeViewdMessage = async (msg) => {
+    console.log("Received a 'viewd' message");
+
+    const parsedMsg = JSON.parse(msg.content.toString());
+
+    const result = await videosCollection.insertOne({
+      videoPath: parsedMsg.videoPath,
+    });
+
+    if (result && result.acknowledged) {
+      console.log("Acknowledging message was handled.");
+      msgChannel.ack(msg);
+    }
+  };
+
+  await msgChannel.assertQueue("viewd", {});
+
+  return msgChannel.consume("viewd", consumeViewdMessage);
+};
+
+const startHttpServer = (db, msgChannel) => {
   return new Promise((resolve) => {
     const app = express();
     app.use(express.json());
-    setupHandlers(app, db);
+
+    setupHandlers(app, db, msgChannel);
 
     const port = (process.env.PORT && parseInt(process.env.PORT)) || 3000;
     app.listen(port, () => {
@@ -75,10 +71,11 @@ const startHttpServer = (db) => {
   });
 };
 
-const main = () => {
-  return connectDB().then((db) => {
-    return startHttpServer(db);
-  });
+const main = async () => {
+  const db = await connectDB();
+  const msgChannel = await connectRabbit();
+
+  return startHttpServer(db, msgChannel);
 };
 
 main()

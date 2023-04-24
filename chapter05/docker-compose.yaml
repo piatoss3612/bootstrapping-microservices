@@ -14,8 +14,11 @@ services:
       - 4000:80
     environment:
       PORT: 80
+      RABBIT: amqp://guest:guest@rabbit:5672
       NODE_ENV: development
     restart: "no"
+    depends_on:
+      - rabbit
 
   history:
     image: history
@@ -30,14 +33,26 @@ services:
       - 4001:80
     environment:
       PORT: 80
+      RABBIT: amqp://guest:guest@rabbit:5672
       DB_HOST: mongodb://db:27017
       DB_NAME: history
       NODE_ENV: development
     restart: "no"
+    depends_on:
+      - db
+      - rabbit
   
   db:
     image: mongo:5.0.16-focal
     container_name: db
     ports:
       - 4002:27017
+    restart: always
+  
+  rabbit:
+    image: rabbitmq:3.11.13-management
+    container_name: rabbit
+    ports:
+      - 5672:5672
+      - 15672:15672
     restart: always
