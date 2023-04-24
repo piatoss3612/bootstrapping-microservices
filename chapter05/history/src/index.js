@@ -52,9 +52,9 @@ const setupHandlers = async (app, db, msgChannel) => {
     }
   };
 
-  await msgChannel.assertQueue("viewd", {});
+  await msgChannel.assertQueue("viewed", {});
 
-  return msgChannel.consume("viewd", consumeViewdMessage);
+  return msgChannel.consume("viewed", consumeViewdMessage);
 };
 
 const startHttpServer = (db, msgChannel) => {

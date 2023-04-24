@@ -1,47 +1,34 @@
 const express = require("express");
 const fs = require("fs");
-const http = require("http");
+const amqp = require("amqplib");
 
-const port = process.env.PORT;
+const RABBIT = process.env.RABBIT;
 
-if (!port) {
+if (!RABBIT) {
   throw new Error(
-    "Please specify the port number for the HTTP server with the environment variable PORT."
+    "Please specify the URL of the RabbitMQ server with the environment variable RABBIT."
   );
 }
 
-const sendViewdMessage = (videoPath) => {
-  const postOptions = {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-  };
-
-  const requestBody = {
-    videoPath: videoPath,
-  };
-
-  const req = http.request("http://history/viewed", postOptions);
-
-  req.on("close", () => {
-    console.log("Sent 'viewed' message to history microservice.");
-  });
-
-  req.on("error", (err) => {
-    console.error("Failed to send 'viewed' message!");
-    console.error((err && err.stack) || err);
-  });
-
-  req.write(JSON.stringify(requestBody));
-  req.end();
+const connectRabbit = async () => {
+  const conn = await amqp.connect(RABBIT);
+  return conn.createChannel();
 };
 
-const setupHandlers = (app) => {
-  app.get("/video", (req, res) => {
-    const path = "./videos/SampleVideo_1280x720_1mb.mp4";
+const sendViewdMessage = (msgChannel, videoPath) => {
+  const msg = { videoPath: videoPath };
+  const jsonMsg = JSON.stringify(msg);
 
-    fs.stat(path, (err, stats) => {
+  msgChannel.publish("", "viewed", Buffer.from(jsonMsg));
+
+  console.log(`Publishing message on "viewed" queue.`);
+};
+
+const setupHandlers = (app, msgChannel) => {
+  app.get("/video", (req, res) => {
+    const videoPath = "./videos/SampleVideo_1280x720_1mb.mp4";
+
+    fs.stat(videoPath, (err, stats) => {
       if (err) {
         console.log(err);
         return res.status(500).send(err.message);
@@ -51,17 +38,19 @@ const setupHandlers = (app) => {
         "Content-Length": stats.size,
         "Content-Type": "video/mp4",
       });
-      fs.createReadStream(path).pipe(res);
+      fs.createReadStream(videoPath).pipe(res);
 
-      sendViewdMessage(path);
+      sendViewdMessage(msgChannel, videoPath);
     });
   });
 };
 
-const startHttpServer = () => {
+const startHttpServer = (msgChannel) => {
   return new Promise((resolve) => {
     const app = express();
-    setupHandlers(app);
+    setupHandlers(app, msgChannel);
+
+    const port = (process.env.PORT && parseInt(process.env.PORT)) || 3000;
 
     app.listen(port, () => {
       resolve();
@@ -69,13 +58,14 @@ const startHttpServer = () => {
   });
 };
 
-const main = () => {
-  return startHttpServer();
+const main = async () => {
+  const msgChannel = await connectRabbit();
+  return startHttpServer(msgChannel);
 };
 
 main()
   .then(() => {
-    console.log(`Listening on port ${port}`);
+    console.log("Microservice online.");
   })
   .catch((err) => {
     console.error("Microservice failed to start.");
