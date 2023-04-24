@@ -30,5 +30,14 @@ services:
       - 4001:80
     environment:
       PORT: 80
+      DB_HOST: mongodb://db:27017
+      DB_NAME: history
       NODE_ENV: development
     restart: "no"
+  
+  db:
+    image: mongo:5.0.16-focal
+    container_name: db
+    ports:
+      - 4002:27017
+    restart: always
