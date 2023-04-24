@@ -41,12 +41,31 @@ services:
     depends_on:
       - db
       - rabbit
+
+  recommendations:
+    image: recommendations
+    build:
+      context: ./recommendations
+      dockerfile: Dockerfile.dev
+    container_name: recommendations
+    volumes:
+      - /tmp/recommendations/npm-cache:/root/.npm:z
+      - ./recommendations/src:/usr/src/app/src:z
+    ports:
+      - 4002:80
+    environment:
+      PORT: 80
+      RABBIT: amqp://guest:guest@rabbit:5672
+      NODE_ENV: development
+    restart: "no"
+    depends_on:
+      - rabbit
   
   db:
     image: mongo:5.0.16-focal
     container_name: db
     ports:
-      - 4002:27017
+      - 27017:27017
     restart: always
   
   rabbit:

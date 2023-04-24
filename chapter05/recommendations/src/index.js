@@ -1,22 +1,7 @@
 const express = require("express");
-const mongodb = require("mongodb");
 const amqp = require("amqplib");
 
-const DB_HOST = process.env.DB_HOST;
-const DB_NAME = process.env.DB_NAME;
 const RABBIT = process.env.RABBIT;
-
-if (!DB_HOST) {
-  throw new Error(
-    "Please specify the host of the MongoDB database with the environment variable DB_HOST."
-  );
-}
-
-if (!DB_NAME) {
-  throw new Error(
-    "Please specify the name of the MongoDB database with the environment variable DB_NAME."
-  );
-}
 
 if (!RABBIT) {
   throw new Error(
@@ -24,32 +9,20 @@ if (!RABBIT) {
   );
 }
 
-const connectDB = async () => {
-  const client = await mongodb.MongoClient.connect(DB_HOST);
-  return client.db(DB_NAME);
-};
-
 const connectRabbit = async () => {
   const conn = await amqp.connect(RABBIT);
   return conn.createChannel();
 };
 
-const setupHandlers = async (app, db, msgChannel) => {
-  const videosCollection = db.collection("videos");
-
+const setupHandlers = async (app, msgChannel) => {
   const consumeViewdMessage = async (msg) => {
-    console.log("Received a 'viewed' message");
-
     const parsedMsg = JSON.parse(msg.content.toString());
+    console.log("Received a 'viewed' message:");
+    console.log(JSON.stringify(parsedMsg, null, 4));
 
-    const result = await videosCollection.insertOne({
-      videoPath: parsedMsg.videoPath,
-    });
+    console.log("Acknowledging message was handled.");
 
-    if (result && result.acknowledged) {
-      console.log("Acknowledging message was handled.");
-      msgChannel.ack(msg);
-    }
+    msgChannel.ack(msg);
   };
 
   await msgChannel.assertExchange("viewed", "fanout");
@@ -59,12 +32,12 @@ const setupHandlers = async (app, db, msgChannel) => {
   return msgChannel.consume(queue, consumeViewdMessage);
 };
 
-const startHttpServer = (db, msgChannel) => {
+const startHttpServer = (msgChannel) => {
   return new Promise((resolve) => {
     const app = express();
     app.use(express.json());
 
-    setupHandlers(app, db, msgChannel);
+    setupHandlers(app, msgChannel);
 
     const port = (process.env.PORT && parseInt(process.env.PORT)) || 3000;
     app.listen(port, () => {
@@ -74,15 +47,14 @@ const startHttpServer = (db, msgChannel) => {
 };
 
 const main = async () => {
-  const db = await connectDB();
   const msgChannel = await connectRabbit();
 
-  return startHttpServer(db, msgChannel);
+  return startHttpServer(msgChannel);
 };
 
 main()
   .then(() => {
-    console.log("Server started");
+    console.log("Server started.");
   })
   .catch((err) => {
     console.error("Failed to start server");

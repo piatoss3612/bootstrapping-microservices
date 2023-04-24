@@ -11,15 +11,19 @@ if (!RABBIT) {
 }
 
 const connectRabbit = async () => {
-  const conn = await amqp.connect(RABBIT);
-  return conn.createChannel();
+  const connection = await amqp.connect(RABBIT);
+  const channel = await connection.createChannel();
+
+  await channel.assertExchange("viewed", "fanout");
+
+  return channel;
 };
 
 const sendViewdMessage = (msgChannel, videoPath) => {
   const msg = { videoPath: videoPath };
   const jsonMsg = JSON.stringify(msg);
 
-  msgChannel.publish("", "viewed", Buffer.from(jsonMsg));
+  msgChannel.publish("viewed", "", Buffer.from(jsonMsg));
 
   console.log(`Publishing message on "viewed" queue.`);
 };
