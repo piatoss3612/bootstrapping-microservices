@@ -1,5 +1,5 @@
 resource "azurerm_container_registry" "container-registry" {
-  name = "containerRegistry3612" # special characters unavailable for container registry name and must be unique
+  name = var.app_name # special characters unavailable for container registry name and must be unique
 
   resource_group_name = azurerm_resource_group.flixtube3612.name
   location            = azurerm_resource_group.flixtube3612.location

@@ -16,6 +16,7 @@ $ terraform plan
 
 ```sh
 $ terraform apply
+$ terraform apply -auto-approve
 ```
 
 ## Destroy
