@@ -10,10 +10,8 @@ variable "admin_username" {
   default = "linux_admin"
 }
 
-variable "client_id" {
+variable "app_version" {}
 
-}
+variable "client_id" {}
 
-variable "client_secret" {
-
-}
+variable "client_secret" {}
