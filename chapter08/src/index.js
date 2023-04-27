@@ -63,7 +63,7 @@ function startHttpServer(dbConn) {
     };
     setupHandlers(microservice);
 
-    const port = (process.env.PORT && parseInt(process.env.PORT)) || 3000;
+    const port = (process.env.PORT && parseInt(process.env.PORT)) || 4000;
     const server = app.listen(port, () => {
       microservice.close = () => {
         // Create a function that can be used to close our server and database.

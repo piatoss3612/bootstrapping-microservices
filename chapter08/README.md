@@ -9,10 +9,14 @@ $ npx jest --init
 ## Run test
 
 ```sh
+$ docker compose up -d
+```
+
+```sh
 $ npm test
 ```
 
-## Run test in watch mode
+or
 
 ```sh
 $ npm run test:watch
