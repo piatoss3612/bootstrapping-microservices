@@ -115,3 +115,22 @@ services:
       - rabbit
       - db
     restart: "no"
+
+  db-fixture-rest-api:
+    image: db-fixture-rest-api
+    build:
+      context: ./db-fixture-rest-api
+      dockerfile: Dockerfile
+    container_name: db-fixture-rest-api
+    ports:
+      - 9000:80
+    environment:
+      PORT: 80
+      DBHOST: mongodb://db:27017
+      FIXTURES_DIR: fixtures
+    volumes:
+      - ./db-fixture-rest-api/fixtures:/usr/src/app/fixtures:z
+      - ./db-fixture-rest-api/src:/usr/src/app/src:z
+    depends_on:
+      - db
+    restart: always
