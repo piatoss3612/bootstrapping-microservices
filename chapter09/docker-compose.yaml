@@ -56,3 +56,23 @@ services:
       - rabbit
       - db
     restart: "no"
+
+  video-upload:
+    image: video-upload
+    build:
+      context: ./video-upload
+      dockerfile: Dockerfile.dev
+    container_name: video-upload
+    volumes:
+      - /tmp/video-upload/npm-cache:/root/.npm:z
+      - ./video-upload/src:/usr/src/app/src:z
+      - ./video-upload/uploads:/usr/src/app/uploads:z
+    ports:
+      - 4004:80
+    environment:
+      PORT: 80
+      RABBIT: amqp://guest:guest@rabbit:5672
+      NODE_ENV: development
+    depends_on:
+      - rabbit
+    restart: "no"
