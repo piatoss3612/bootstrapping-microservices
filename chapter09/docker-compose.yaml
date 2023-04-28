@@ -76,3 +76,20 @@ services:
     depends_on:
       - rabbit
     restart: "no"
+
+  video-storage:
+    image: mock-storage
+    build:
+      context: ./mock-storage
+      dockerfile: Dockerfile.dev
+    container_name: video-storage
+    volumes:
+      - /tmp/mock-storage/npm-cache:/root/.npm:z
+      - ./mock-storage/src:/usr/src/app/src:z
+      - ./mock-storage/storage:/usr/src/app/storage:z
+    ports:
+      - 4005:80
+    environment:
+      PORT: 80
+      NODE_ENV: development
+    restart: "no"
