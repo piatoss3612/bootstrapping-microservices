@@ -93,3 +93,25 @@ services:
       PORT: 80
       NODE_ENV: development
     restart: "no"
+
+  metadata:
+    image: metadata
+    build:
+      context: ./metadata
+      dockerfile: Dockerfile.dev
+    container_name: metadata
+    volumes:
+      - /tmp/metadata/npm-cache:/root/.npm:z
+      - ./metadata/src:/usr/src/app/src:z
+    ports:
+      - 4006:80
+    environment:
+      PORT: 80
+      RABBIT: amqp://guest:guest@rabbit:5672
+      DBHOST: mongodb://db:27017
+      DBNAME: metadata
+      NODE_ENV: development
+    depends_on:
+      - rabbit
+      - db
+    restart: "no"
