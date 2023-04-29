@@ -11,14 +11,21 @@ if (!process.env.RABBIT) {
 
 const RABBIT = process.env.RABBIT;
 
-const streamToHttpPost = (inputStream, uploadHost, uploadRoute, headers) => {
+//
+//  Write a Node.js stream to a HTTP POST request.
+//
+function streamToHttpPost(inputStream, uploadHost, uploadRoute, headers) {
   return new Promise((resolve, reject) => {
-    const forwardRequest = http.request({
-      host: uploadHost,
-      path: uploadRoute,
-      method: "POST",
-      headers: headers,
-    });
+    // Wrapthe stream in a promise so that we can wait for it to complete.
+    const forwardRequest = http.request(
+      // Forward the request to the video storage microservice.
+      {
+        host: uploadHost,
+        path: uploadRoute,
+        method: "POST",
+        headers: headers,
+      }
+    );
 
     inputStream.on("error", reject);
     inputStream
@@ -28,76 +35,94 @@ const streamToHttpPost = (inputStream, uploadHost, uploadRoute, headers) => {
       .on("finish", resolve)
       .on("close", resolve);
   });
-};
+}
 
-const connectRabbit = async () => {
-  console.log(`Connecting to RabbitMQ at ${RABBIT}`);
+//
+// Connect to the RabbitMQ server.
+//
+function connectRabbit() {
+  console.log(`Connecting to RabbitMQ server at ${RABBIT}.`);
 
-  const connection = await amqp.connect(RABBIT);
-  if (!connection) {
-    throw new Error("Unable to connect to RabbitMQ");
-  }
+  return amqp
+    .connect(RABBIT) // Connect to the RabbitMQ server.
+    .then((messagingConnection) => {
+      console.log("Connected to RabbitMQ.");
 
-  const messageChannel = await connection.createChannel();
-  if (!messageChannel) {
-    throw new Error("Unable to create channel");
-  }
+      return messagingConnection.createChannel(); // Create a RabbitMQ messaging channel.
+    });
+}
 
-  await messageChannel.assertExchange("viewed", "fanout");
-  return messageChannel;
-};
-
-const broadcastViewedMessage = (messageChannel, videoMetadata) => {
+//
+// Broadcast the "video-uploaded" message.
+//
+function broadcastVideoUploadedMessage(messageChannel, videoMetadata) {
   console.log(`Publishing message on "video-uploaded" exchange.`);
 
   const msg = { video: videoMetadata };
   const jsonMsg = JSON.stringify(msg);
-  messageChannel.publish("video-uploaded", "", Buffer.from(jsonMsg));
-};
+  messageChannel.publish("video-uploaded", "", Buffer.from(jsonMsg)); // Publish message to the "video-uploaded" exchange.
+}
 
-const setupHandlers = (app, messageChannel) => {
-  app.post("/upload", async (req, res) => {
+//
+// Setup event handlers.
+//
+function setupHandlers(app, messageChannel) {
+  //
+  // Route for uploading videos.
+  //
+  app.post("/upload", (req, res) => {
     const fileName = req.headers["file-name"];
-    const videoId = new mongodb.ObjectId();
+    const videoId = new mongodb.ObjectId(); // Create a new unique ID for the video.
     const newHeaders = Object.assign({}, req.headers, { id: videoId });
-    streamToHttpPost(req, "video-storage", "/upload", newHeaders)
+    streamToHttpPost(req, `video-storage`, `/upload`, newHeaders)
       .then(() => {
         res.sendStatus(200);
       })
       .then(() => {
-        broadcastViewedMessage(messageChannel, { id: videoId, name: fileName });
+        // Broadcast message to the world.
+        broadcastVideoUploadedMessage(messageChannel, {
+          id: videoId,
+          name: fileName,
+        });
       })
       .catch((err) => {
         console.error(`Failed to capture uploaded file ${fileName}.`);
         console.error(err);
         console.error(err.stack);
-        res.sendStatus(500);
       });
   });
-};
+}
 
-const startServer = (messageChannel) => {
+//
+// Start the HTTP server.
+//
+function startHttpServer(messageChannel) {
   return new Promise((resolve) => {
+    // Wrap in a promise so we can be notified when the server has started.
     const app = express();
     setupHandlers(app, messageChannel);
 
     const port = (process.env.PORT && parseInt(process.env.PORT)) || 3000;
     app.listen(port, () => {
-      resolve();
+      resolve(); // HTTP server is listening, resolve the promise.
     });
   });
-};
+}
 
-const main = async () => {
-  const messageChannel = await connectRabbit();
-  return startServer(messageChannel);
-};
+//
+// Application entry point.
+//
+function main() {
+  return connectRabbit() // Connect to RabbitMQ...
+    .then((messageChannel) => {
+      // then...
+      return startHttpServer(messageChannel); // start the HTTP server.
+    });
+}
 
 main()
-  .then(() => {
-    console.log("Video upload service started");
-  })
+  .then(() => console.log("Microservice online."))
   .catch((err) => {
-    console.error("Unable to start video upload service");
+    console.error("Microservice failed to start.");
     console.error((err && err.stack) || err);
   });
