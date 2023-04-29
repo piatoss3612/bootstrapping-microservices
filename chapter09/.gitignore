@@ -1,2 +1,4 @@
 .terraform*
 *.tfstate*
+storage
+node_modules
